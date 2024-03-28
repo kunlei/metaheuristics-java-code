@@ -13,17 +13,17 @@ import java.util.*;
 public final class GapTabuSearch {
   private final GapInstance instance;
   private final Random random;
-  private final int[][] tabuList;
+  private final int[][] tabuTable;
 
   private GapSolution bestSolution;
 
   public GapTabuSearch(GapInstance instance) {
     this.instance = instance;
     this.random = new Random(42);
-    this.tabuList = new int[this.instance.getNumTasks()][this.instance.getNumAgents()];
+    this.tabuTable = new int[this.instance.getNumTasks()][this.instance.getNumAgents()];
     for (int i = 0; i < this.instance.getNumTasks(); i++) {
       for (int j = 0; j < this.instance.getNumAgents(); j++) {
-        this.tabuList[i][j] = 0;
+        this.tabuTable[i][j] = 0;
       }
     }
 
@@ -31,9 +31,9 @@ public final class GapTabuSearch {
   }
 
   public void solve() {
-    int capacityViolationPenalty = 200;
+    int capacityViolationPenalty = 1000;
 
-    int maxIter = 10000;
+    int maxIter = 2000;
     int neighSize = 50;
     int tabuLength = 20;
 
@@ -79,28 +79,43 @@ public final class GapTabuSearch {
       // sort neighboring solutions
       neighbors.sort(Comparator.comparingInt(neighbor -> neighbor.getNewSolution().getObjective()));
 
+      boolean currSolutionUpdated = false;
+      boolean bestSolutionUpdated = false;
       // check tabu criteria
       for (GapSolutionNeighbor neighbor : neighbors) {
         GapSolution newSolution = neighbor.getNewSolution();
         int mutatedTaskIdx = neighbor.getMutatedTaskIdx();
         int newAgentIdx = neighbor.getNewAgentIdx();
 
-        if (this.tabuList[mutatedTaskIdx][newAgentIdx] < iter) {
+        if (this.tabuTable[mutatedTaskIdx][newAgentIdx] < iter) {
           // this move is not tabooed, proceed
           currSolution = newSolution;
-          tabuList[mutatedTaskIdx][newAgentIdx] = iter + tabuLength;
+          currSolutionUpdated = true;
+          this.tabuTable[mutatedTaskIdx][newAgentIdx] = iter + tabuLength;
 
           if (currSolution.getObjective() < this.bestSolution.getObjective()) {
             this.bestSolution = currSolution;
+            bestSolutionUpdated = true;
+            break;
           }
         } else {
           // check aspiration criterion
           if (newSolution.getObjective() < bestSolution.getObjective()) {
             currSolution = newSolution;
             bestSolution = currSolution;
-            tabuList[mutatedTaskIdx][newAgentIdx] = iter + tabuLength;
+            currSolutionUpdated = true;
+            bestSolutionUpdated = true;
+            this.tabuTable[mutatedTaskIdx][newAgentIdx] = iter + tabuLength;
+            break;
           }
         }
+      }
+
+      // in case no move is possible, choose the best neighbor
+      if (!currSolutionUpdated) {
+        GapSolutionNeighbor neighbor = neighbors.getFirst();
+        currSolution = neighbor.getNewSolution();
+        this.tabuTable[neighbor.getMutatedTaskIdx()][neighbor.getNewAgentIdx()] = iter + tabuLength;
       }
 
       if (iter++ >= maxIter) {
