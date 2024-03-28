@@ -8,6 +8,11 @@ import java.util.List;
 
 public final class GapInstanceReader {
 
+  /**
+   * read instance file and return all the contained instances
+   * @param filename instance filename
+   * @return list of instances
+   */
   public static List<GapInstance> read(String filename) {
     List<GapInstance> instances = new ArrayList<>();
     try {

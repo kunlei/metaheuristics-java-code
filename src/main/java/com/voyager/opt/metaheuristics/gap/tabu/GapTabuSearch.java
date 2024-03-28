@@ -3,6 +3,8 @@ package com.voyager.opt.metaheuristics.gap.tabu;
 import com.voyager.opt.metaheuristics.gap.GapInstance;
 import com.voyager.opt.metaheuristics.gap.GapInstanceReader;
 import com.voyager.opt.metaheuristics.gap.GapSolution;
+import com.voyager.opt.metaheuristics.utils.PerfRecord;
+import com.voyager.opt.metaheuristics.utils.PerfRecordsWriter;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,43 +13,64 @@ import java.util.*;
 @Getter
 @Setter
 public final class GapTabuSearch {
+  /**
+   * instance to be solved
+   */
   private final GapInstance instance;
+  /**
+   * random number generator
+   */
   private final Random random;
+  /**
+   * tabu table
+   */
   private final int[][] tabuTable;
-
+  /**
+   * best solution
+   */
   private GapSolution bestSolution;
+  private List<PerfRecord<Integer>> perfRecords;
 
   public GapTabuSearch(GapInstance instance) {
     this.instance = instance;
     this.random = new Random(42);
-    this.tabuTable = new int[this.instance.getNumTasks()][this.instance.getNumAgents()];
-    for (int i = 0; i < this.instance.getNumTasks(); i++) {
-      for (int j = 0; j < this.instance.getNumAgents(); j++) {
-        this.tabuTable[i][j] = 0;
-      }
+    int numTasks = instance.getNumTasks();
+    this.tabuTable = new int[numTasks][instance.getNumAgents()];
+    for (int i = 0; i < numTasks; i++) {
+      Arrays.fill(this.tabuTable[i], 0);
     }
 
     this.bestSolution = null;
+    this.perfRecords = new ArrayList<>();
   }
 
   public void solve() {
+    // penalty factor for capacity violation
     int capacityViolationPenalty = 1000;
 
+    // tabu search parameters
+    int neighSize = 100;
+    int tabuLength = 100;
+
+    // stopping criteria
     int maxIter = 2000;
-    int neighSize = 50;
-    int tabuLength = 20;
+    int maxIterNoImprove = 500;
 
     // create a starting solution
     GapSolution currSolution = new GapSolution(this.instance);
     currSolution.initialize(this.random);
     currSolution.computeObjective(capacityViolationPenalty);
     this.bestSolution = currSolution;
+    this.perfRecords.add(new PerfRecord<>(0,
+      currSolution.getObjective(),
+      bestSolution.getObjective()));
 
     int numTasks = this.instance.getNumTasks();
     int numAgents = this.instance.getNumAgents();
 
     // main workflow
     int iter = 0;
+    int iterNoImprove = 0;
     while (true) {
       System.out.println("iter: " + iter + ", best obj: " + bestSolution.getObjective());
       // create neighboring solutions
@@ -118,19 +141,31 @@ public final class GapTabuSearch {
         this.tabuTable[neighbor.getMutatedTaskIdx()][neighbor.getNewAgentIdx()] = iter + tabuLength;
       }
 
-      if (iter++ >= maxIter) {
+      iter++;
+      this.perfRecords.add(new PerfRecord<>(iter,
+        currSolution.getObjective(),
+        bestSolution.getObjective()));
+
+      // check stopping criteria
+      iterNoImprove = bestSolutionUpdated ? 0 : iterNoImprove + 1;
+      if (iter >= maxIter || iterNoImprove >= maxIterNoImprove) {
         break;
       }
     }
   }
 
+  public void savePerfRecords(String filename) {
+    PerfRecordsWriter.write(filename, perfRecords);
+  }
+
   public static void main(String[] args) {
     String filename = "/Users/klian/dev/metaheuristics-java-code/src/main/resources/data/gap/gap1.txt";
+    String outputFilename = "/Users/klian/dev/books/metaheuristics-java/data/gap/perf_records.txt";
     List<GapInstance> instances = GapInstanceReader.read(filename);
 
-    GapInstance instance = instances.getFirst();
+    GapInstance instance = instances.get(1);
     GapTabuSearch tabuSearch = new GapTabuSearch(instance);
     tabuSearch.solve();
-
+    tabuSearch.savePerfRecords(outputFilename);
   }
 }
