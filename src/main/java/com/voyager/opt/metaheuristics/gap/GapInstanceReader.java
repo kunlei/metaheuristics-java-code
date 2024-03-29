@@ -9,14 +9,14 @@ import java.util.List;
 public final class GapInstanceReader {
 
   /**
-   * read instance file and return all the contained instances
-   * @param filename instance filename
+   * read instance filePath and return all the contained instances
+   * @param filePath instance filename
    * @return list of instances
    */
-  public static List<GapInstance> read(String filename) {
+  public static List<GapInstance> read(String filePath) {
     List<GapInstance> instances = new ArrayList<>();
     try {
-      BufferedReader reader = new BufferedReader(new FileReader(filename));
+      BufferedReader reader = new BufferedReader(new FileReader(filePath));
       int numInstances = Integer.parseInt(reader.readLine().trim());
 
       for (int p = 0; p < numInstances; p++) {

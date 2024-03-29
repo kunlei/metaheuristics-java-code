@@ -8,6 +8,9 @@ import com.voyager.opt.metaheuristics.utils.PerfRecordsWriter;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.*;
 
 @Getter
@@ -158,10 +161,11 @@ public final class GapTabuSearch {
     PerfRecordsWriter.write(filename, perfRecords);
   }
 
-  public static void main(String[] args) {
-    String filename = "/Users/klian/dev/metaheuristics-java-code/src/main/resources/data/gap/gap1.txt";
-    String outputFilename = "/Users/klian/dev/books/metaheuristics-java/data/gap/perf_records.txt";
-    List<GapInstance> instances = GapInstanceReader.read(filename);
+  public static void main(String[] args) throws IOException, URISyntaxException {
+    File file = new File("src/main/resources/data/gap/gap1.txt");
+    String filePath = file.getAbsolutePath();
+    String outputFilename = "/Users/klian/dev/books/metaheuristics-java/data/gap/perf_records.csv";
+    List<GapInstance> instances = GapInstanceReader.read(filePath);
 
     GapInstance instance = instances.get(1);
     GapTabuSearch tabuSearch = new GapTabuSearch(instance);

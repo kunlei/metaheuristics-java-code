@@ -10,7 +10,7 @@ public class PerfRecordsWriter {
   public static void write(String filename, List<PerfRecord<Integer>> records) {
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
       for (PerfRecord<Integer> record : records) {
-        String line = record.toSpaceDelimitedString();
+        String line = record.toCommaDelimitedString();
         writer.write(line);
         writer.newLine();
       }

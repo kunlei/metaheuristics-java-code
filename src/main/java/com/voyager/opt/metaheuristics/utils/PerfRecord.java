@@ -10,7 +10,7 @@ public class PerfRecord<T> {
   private T currSolutionObj;
   private T bestSolutionObj;
 
-  public String toSpaceDelimitedString() {
-    return iteration + " " + currSolutionObj + " " + bestSolutionObj;
+  public String toCommaDelimitedString() {
+    return iteration + ", " + currSolutionObj + ", " + bestSolutionObj;
   }
 }
