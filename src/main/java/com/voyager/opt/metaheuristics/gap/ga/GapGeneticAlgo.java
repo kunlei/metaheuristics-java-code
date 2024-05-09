@@ -7,16 +7,17 @@ import com.voyager.opt.metaheuristics.utils.PerfRecord;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
 public class GapGeneticAlgo {
-
-  private static final double MUTATION_RATE = 0.1;
+  private static final int MAX_GENERATIONS = 1000;
   private static final int POPULATION_SIZE = 100;
-  private static final int MAX_GENERATIONS = 10000;
+  private static final double MUTATION_RATE = 0.2;
+  private static final int TOURNAMENT_SIZE = 5;
 
-  private GapInstance instance;
+  private final GapInstance instance;
   /**
    * random number generator
    */
@@ -25,78 +26,97 @@ public class GapGeneticAlgo {
    * best solution
    */
   private GapSolution bestSolution;
+  // performance scores
   private List<PerfRecord<Integer>> perfRecords;
 
-  private int capacityViolationPenalty = 1000;
+  private final int capacityViolationPenalty = 10000;
 
   public GapGeneticAlgo(GapInstance instance) {
     this.instance = instance;
     this.random = new Random(42);
+    this.perfRecords = new ArrayList<>();
   }
 
   public GapSolution solve() {
     // Initialize population
     List<GapSolution> population = initializePopulation();
+    bestSolution = selectBestSolution(population);
 
     // Evolution loop
     for (int generation = 0; generation < MAX_GENERATIONS; generation++) {
-      // Select parents
-      List<GapSolution> parents = selectParents(population);
+      PerfRecord<Integer> perf = collectPerformanceMetrics(population);
+      perf.setIteration(generation);
+      perfRecords.add(perf);
+      System.out.println(perf.toCommaDelimitedString());
 
       // Crossover
-      List<GapSolution> offspring = crossover(parents);
+      List<GapSolution> offspring = crossover(population);
 
       // Mutation
       mutate(offspring);
 
       // Replace old population with new population
-      population = offspring;
+      population.addAll(offspring);
+      population.sort(Comparator.comparingInt(GapSolution::getObjective));
 
-      // Termination condition
-      // In this example, we use a fixed number of generations
+      List<GapSolution> nextGenPop = new ArrayList<>(POPULATION_SIZE);
+      for (int i = 0; i < POPULATION_SIZE; i++) {
+        nextGenPop.add(population.get(i));
+      }
+      population = nextGenPop;
     }
 
     // Select the best solution from the final population
     return selectBestSolution(population);
   }
 
+  /**
+   * randomly create a list of solutions
+   * @return new solutions
+   */
   private List<GapSolution> initializePopulation() {
-    List<GapSolution> population = new ArrayList<>();
-
+    List<GapSolution> population = new ArrayList<>(POPULATION_SIZE);
     for (int i = 0; i < POPULATION_SIZE; i++) {
       GapSolution solution = new GapSolution(instance);
       solution.initialize(random);
       solution.computeObjective(capacityViolationPenalty);
       population.add(solution);
     }
-
     return population;
   }
 
-  private List<GapSolution> selectParents(List<GapSolution> population) {
-    // Here, we can use different selection methods such as roulette wheel selection or tournament selection
-    // For simplicity, let's use tournament selection with tournament size = 2
-    List<GapSolution> parents = new ArrayList<>();
-
-    for (int i = 0; i < POPULATION_SIZE; i++) {
-      GapSolution parent1 = population.get(random.nextInt(POPULATION_SIZE));
-      GapSolution parent2 = population.get(random.nextInt(POPULATION_SIZE));
-      GapSolution winner = (parent1.getObjective() < parent2.getObjective()) ? parent1 : parent2;
-      parents.add(winner);
+  private PerfRecord<Integer> collectPerformanceMetrics(List<GapSolution> population) {
+    for (GapSolution solution : population) {
+      if (bestSolution == null || solution.getObjective() < bestSolution.getObjective()) {
+        this.bestSolution = solution;
+      }
     }
 
-    return parents;
+    double avgObj = population.stream()
+      .mapToInt(GapSolution::getObjective)
+      .average()
+      .getAsDouble();
+    return new PerfRecord<Integer>(0, (int) avgObj, bestSolution.getObjective());
+  }
+
+  private GapSolution selectParent(List<GapSolution> population) {
+    GapSolution champion = population.get(random.nextInt(POPULATION_SIZE));
+    for (int i = 0; i < TOURNAMENT_SIZE - 1; i++) {
+      GapSolution challenger = population.get(random.nextInt(POPULATION_SIZE));
+      if (challenger.getObjective() < champion.getObjective()) {
+        champion = challenger;
+      }
+    }
+    return champion;
   }
 
   private List<GapSolution> crossover(List<GapSolution> parents) {
     // Here, we can use different crossover techniques such as one-point crossover or uniform crossover
     // For simplicity, let's use one-point crossover
-    List<GapSolution> offspring = new ArrayList<>();
-    Random random = new Random();
-
-    for (int i = 0; i < POPULATION_SIZE; i += 2) {
-      GapSolution parent1 = parents.get(i);
-      GapSolution parent2 = parents.get(i + 1);
+    List<GapSolution> offspring = new ArrayList<>(POPULATION_SIZE);
+    for (int i = 0; i < POPULATION_SIZE; i++) {
+      GapSolution parent1 = selectParent(parents);
+      GapSolution parent2 = selectParent(parents);
 
       int crossoverPoint = random.nextInt(instance.getNumTasks() - 1) + 1; // Ensure crossoverPoint is not 0
 
@@ -121,14 +141,14 @@ public class GapGeneticAlgo {
   }
 
   private void mutate(List<GapSolution> population) {
-    Random random = new Random();
-
     for (GapSolution solution : population) {
       if (random.nextDouble() < MUTATION_RATE) {
-        // Perform mutation by randomly changing a task assignment
-        int taskIndex = random.nextInt(instance.getNumTasks());
-        int agentIndex = random.nextInt(instance.getNumAgents());
-        solution.setAssignedAgent(taskIndex, agentIndex);
+        for (int taskIdx = 0; taskIdx < instance.getNumTasks(); taskIdx++) {
+          if (random.nextDouble() < MUTATION_RATE / 2.0) {
+            int newAgentIdx = random.nextInt(instance.getNumAgents());
+            solution.setAssignedAgent(taskIdx, newAgentIdx);
+          }
+        }
         solution.computeObjective(capacityViolationPenalty);
       }
     }
@@ -136,7 +156,7 @@ public class GapGeneticAlgo {
 
   private GapSolution selectBestSolution(List<GapSolution> population) {
     // Find the best solution (solution with the lowest objective value) in the population
-    GapSolution bestSolution = population.get(0);
+    GapSolution bestSolution = population.getFirst();
     for (GapSolution solution : population) {
       if (solution.getObjective() < bestSolution.getObjective()) {
         bestSolution = solution;

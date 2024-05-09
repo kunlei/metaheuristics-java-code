@@ -18,14 +18,17 @@ public class GapInstance {
   private int numAgents;
   /**
    * costs of assigning tasks to agents
+   * dimension: numAgents * numTasks
    */
   private int[][] costs;
   /**
    * resource consumption of assigning tasks to agents
+   * dimension: numAgents * numTasks
    */
   private int[][] resources;
   /**
    * agent capacities
+   * dimension: numAgents
    */
   private int[] capacities;
 }
